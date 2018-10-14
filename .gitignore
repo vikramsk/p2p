@@ -10,6 +10,14 @@
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
+# Eclipse Core
+bin/
+.project
+.settings/
+
+# JDT-specific (Eclipse Java Development Tools)
+.classpath
+
 # Package Files #
 *.jar
 *.war
