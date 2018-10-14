@@ -1,0 +1,71 @@
+package p2p;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+
+// Configs loads the configuration from the 
+// files when the process is launched.
+public final class Configs {
+	
+	// Common defines the Common config object.
+	public final static class Common {
+		
+		// Constants consists of the supported configuration strings
+		// for the Common configurations.
+		static class Constants {
+			static final String PreferredNeighbors = "NumberOfPreferredNeighbors";
+			static final String UnchokingInterval = "UnchokingInterval";
+			static final String OptimisticUnchokingInterval = "OptimisticUnchokingInterval";
+			static final String FileName = "FileName";
+			static final String FileSize = "FileSize";
+			static final String PieceSize = "PieceSize";
+		}
+		
+		static int NumberOfPreferredNeighbors;
+		static int UnchokingInterval;
+		static int OptimisticUnchokingInterval;
+		static String FileName;
+		static int FileSize;
+		static int PieceSize;
+		
+		Common(String fileName) {
+			FileReader fr;
+			BufferedReader br;
+			try {
+				fr = new FileReader(fileName);
+				br = new BufferedReader(fr);
+				String line = br.readLine();
+				while (line != null) {
+					String[] values = line.trim().split(" ");
+					switch (values[0]) {
+					case Configs.Common.Constants.PreferredNeighbors :
+						NumberOfPreferredNeighbors = Integer.parseInt(values[1].trim());
+						break;
+					case Configs.Common.Constants.UnchokingInterval :
+						UnchokingInterval = Integer.parseInt(values[1].trim());
+						break;
+					case Configs.Common.Constants.OptimisticUnchokingInterval :
+						OptimisticUnchokingInterval = Integer.parseInt(values[1].trim());
+						break;
+					case Configs.Common.Constants.FileName :
+						FileName = values[1].trim();
+						break;
+					case Configs.Common.Constants.FileSize :
+						FileSize = Integer.parseInt(values[1].trim());
+						break;
+					case Configs.Common.Constants.PieceSize :
+						PieceSize = Integer.parseInt(values[1].trim());
+						break;
+					}
+					line = br.readLine();
+				}
+				br.close();
+				fr.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+}
