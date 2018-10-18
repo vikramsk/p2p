@@ -35,4 +35,9 @@ public class Peer {
 		this.prefNeighborLimit = Configs.Common.NumberOfPreferredNeighbors;
 		this.unchokeInterval = Configs.Common.UnchokingInterval;
 	}
+
+    // peer establishes TCP connection with all the peers above it.
+    public establishTCPConnection(){
+
+    }
 }
