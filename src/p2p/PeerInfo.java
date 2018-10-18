@@ -14,4 +14,10 @@ class PeerInfo {
 	// Port defines the port number on which
 	// the peer is listening/accepting connections.
 	String Port;
+
+    public PeerInfo(String PeerID, String Hostname, String Port){
+        this.PeerID = PeerID;
+        this.Hostname = Hostname;
+        this.Port = Port;
+    }
 }
