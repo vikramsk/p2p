@@ -23,4 +23,8 @@ class HandshakeMessage {
 		this.zeroBits = new byte[10];
 		this.peerID = peerID;
 	}
+
+    String getString(){
+        return (headerString + new String(zeroBits) + peerID);
+    }
 }

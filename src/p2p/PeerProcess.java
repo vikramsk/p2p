@@ -7,7 +7,7 @@ import java.io.FileReader;
 
 public class PeerProcess {
     String peerId, address, serverPort;
-    ArrayList<PeerInfo> connPeers = new ArrayList<PeerInfo>();
+    ArrayList<PeerInfo> connToPeers = new ArrayList<PeerInfo>();
 
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -25,12 +25,19 @@ public class PeerProcess {
 	}
 
     // Run implements peerInfo parser of the file p2p/PeerInfo.cfg
-    // and instantiates a Peer and establishes TCP connection with
-    // other peers before it
+    // and instantiates a Peer and establishes TCP connection
     public void run(String[] args) throws IOException{
         peerId = args[0];
+        peerInfoParser();
+        Peer peer = new Peer(peerId, connToPeers, address, serverPort);
+        peer.establishTCPConnection();
+        // peer.handShake();
+    }
+
+    // peerInfoParser parses p2p/PeerInfo.cfg and fills the connToPeers list 
+    // with the peers before it
+    void peerInfoParser() throws IOException{
         String eachPeerLine;
-        // Fill the connPeers list with the peers its supposed to establish a connection with
         BufferedReader in = new BufferedReader(new FileReader("p2p/PeerInfo.cfg"));
         while ((eachPeerLine = in.readLine()) != null) {
             String[] tokens = eachPeerLine.split("\\s+");
@@ -39,11 +46,8 @@ public class PeerProcess {
                 serverPort = tokens[2];
                 break;
             }
-            connPeers.add(new PeerInfo(tokens[0], tokens[1], tokens[2]));
+            connToPeers.add(new PeerInfo(tokens[0], tokens[1], tokens[2]));
         }
-        Peer peer = new Peer(peerId, connPeers, address, serverPort);
-        peer.establishTCPConnection();
-        
     }
 
 }
