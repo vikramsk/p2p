@@ -5,7 +5,7 @@ import java.io.DataOutputStream;
 import java.io.DataInputStream;
 
 // ClientSocket defines a single socket connection a client uses to connect 
-// to the server and the output and input streams associated with it
+// to the server, the output and input streams associated with it
 class ClientSocket{
 
     Socket clientSocket;
