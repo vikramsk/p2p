@@ -132,7 +132,9 @@ public class Peer {
                 out = new DataOutputStream(socket.getOutputStream());
                 out.flush();
                 in = new DataInputStream(socket.getInputStream());
-                clientSockets.add(new ClientSocket(socket, in, out));
+                synchronized(clientSockets){
+                    clientSockets.add(new ClientSocket(socket, in, out));
+                }
                 // System.out.println("In response handshake. Connected to peer " + peerId);
                 handShake(new HandshakeMessage(id), out);
                 System.out.println("Response handshake sent.");
