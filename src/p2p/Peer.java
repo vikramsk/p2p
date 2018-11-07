@@ -45,9 +45,7 @@ public class Peer {
     // the peer is listening
     String serverPort;
 
-<<<<<<< HEAD
     P2PLog logger;
-=======
     HandshakeMessage handShake;
     DataOutputStream out;
 
@@ -56,7 +54,6 @@ public class Peer {
 
     // attacker checks if the received handshake is from a valid peer
     Boolean attacker = true;
->>>>>>> master
 
 	// Peer initializes a peer with the required info.
 	public Peer(String id, ArrayList<PeerInfo> connToPeers, String address, String serverPort) {
@@ -94,13 +91,10 @@ public class Peer {
                     clientSockets.add(new ClientSocket(peerInfo.peerID, socket, in, out));
                 }
                 System.out.println("Connected to peer " + peerInfo.peerID);
-<<<<<<< HEAD
                 logger.log("Peer " + id + " makes a connection to Peer " + peerInfo.peerID);
-=======
                 System.out.println("Sending handShake to " + peerInfo.peerID);
                 handShake(new HandshakeMessage(id), out);
                 System.out.println("handShake sent");
->>>>>>> master
             } catch(IOException e){
                 e.printStackTrace();
             }
