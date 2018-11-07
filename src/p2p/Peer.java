@@ -86,7 +86,7 @@ public class Peer {
                 out.flush();
                 in = new DataInputStream(socket.getInputStream());
                 synchronized(clientSockets){
-                    clientSockets.add(new ClientSocket(socket, in, out));
+                    clientSockets.add(new ClientSocket(peerInfo.peerID, socket, in, out));
                 }
                 System.out.println("Connected to peer " + peerInfo.peerID);
                 System.out.println("Sending handShake to " + peerInfo.peerID);
@@ -133,7 +133,7 @@ public class Peer {
                 out.flush();
                 in = new DataInputStream(socket.getInputStream());
                 synchronized(clientSockets){
-                    clientSockets.add(new ClientSocket(socket, in, out));
+                    clientSockets.add(new ClientSocket(peerId, socket, in, out));
                 }
                 // System.out.println("In response handshake. Connected to peer " + peerId);
                 handShake(new HandshakeMessage(id), out);

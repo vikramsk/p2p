@@ -8,6 +8,9 @@ import java.io.DataInputStream;
 // to the server, the output and input streams associated with it
 class ClientSocket{
 
+    // peerId is the peer on the other end of the socket
+    String peerId;
+
     Socket clientSocket;
 
     // Initialize output stream to write to the socket
@@ -16,7 +19,8 @@ class ClientSocket{
     // Initialize input stream to read from the socket
     DataInputStream in = null;
 
-    public ClientSocket(Socket clientSocket, DataInputStream in, DataOutputStream out){
+    public ClientSocket(String peerId, Socket clientSocket, DataInputStream in, DataOutputStream out){
+        this.peerId = peerId;
         this.clientSocket = clientSocket;
         this.in = in;
         this.out = out;
