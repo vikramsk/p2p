@@ -41,6 +41,8 @@ public class Peer {
     // the peer is listening
     String serverPort;
 
+    P2PLog logger;
+
 	// Peer initializes a peer with the required info.
 	public Peer(String id, ArrayList<PeerInfo> connPeers, String address, String serverPort) {
 		this.id = id;
@@ -49,6 +51,7 @@ public class Peer {
         this.serverPort = serverPort;
 		this.prefNeighborLimit = Configs.Common.NumberOfPreferredNeighbors;
 		this.unchokeInterval = Configs.Common.UnchokingInterval;
+        this.logger = new P2PLog(id);
 	}
 
     // peer establishes TCP connection with all the peers
@@ -68,6 +71,7 @@ public class Peer {
             try{
                 clientSocket = new Socket(peerInfo.hostName, Integer.parseInt(peerInfo.port));
                 System.out.println("Connected to peer " + peerInfo.peerID);
+                logger.log("Peer " + id + " makes a connection to Peer " + peerInfo.peerID);
             } catch(IOException e){
                 e.printStackTrace();
             }
