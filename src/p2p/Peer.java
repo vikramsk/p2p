@@ -3,7 +3,11 @@ package p2p;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.net.Socket;
+import java.io.DataOutputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.FileReader;
 
 // Peer defines a single peer in the
 // network and the properties associated
@@ -30,9 +34,9 @@ public class Peer {
 	// bits at the end are padded to zero if required.
 	byte[] bitField;
 
-    // connPeers contains the list of peers it's supposed
+    // connToPeers contains the list of peers it's supposed
 	// to establish a connection with on launch.
-    ArrayList<PeerInfo> connPeers;
+    ArrayList<PeerInfo> connToPeers;
 
     // address represents the peer's IP address
     String address;
@@ -41,36 +45,102 @@ public class Peer {
     // the peer is listening
     String serverPort;
 
+    HandshakeMessage handShake;
+    DataOutputStream out;
+
+    // clientSockets contains all the sockets/servers of other peers this peer is connected to
+    ArrayList<ClientSocket> clientSockets = new ArrayList<ClientSocket>();
+
+    // attacker checks if the received handshake is from a valid peer
+    Boolean attacker = true;
+
 	// Peer initializes a peer with the required info.
-	public Peer(String id, ArrayList<PeerInfo> connPeers, String address, String serverPort) {
+	public Peer(String id, ArrayList<PeerInfo> connToPeers, String address, String serverPort) {
 		this.id = id;
-        this.connPeers = connPeers;
+        this.connToPeers = connToPeers;
         this.address = address;
         this.serverPort = serverPort;
 		this.prefNeighborLimit = Configs.Common.NumberOfPreferredNeighbors;
 		this.unchokeInterval = Configs.Common.UnchokingInterval;
 	}
 
-    // peer establishes TCP connection with all the peers
-    // above it according to the PeerInfo.cfg file.
+    // peer establishes TCP connection with all the peers in connToPeers
+    // and sends handshake message to them
     public void establishTCPConnection(){
-        Socket clientSocket;
-        
+        DataOutputStream out = null;
+        DataInputStream in = null;
+        Socket socket;
+
         // Start peer's server in a separate thread to listen for connections
-        Server server = new Server(serverPort);
+        Server server = new Server(this, serverPort, connToPeers);
         Thread listener = new Thread(server);
         listener.start();
 
         // peer/client connects to the other servers 
-        for(int i = 0; i<connPeers.size(); i++){
-            PeerInfo peerInfo = connPeers.get(i);
-            System.out.println("Trying to connect to peer " + peerInfo.peerID);
+        for(int i = 0; i<connToPeers.size(); i++){
+            PeerInfo peerInfo = connToPeers.get(i);
+            System.out.println("\n\nTrying to connect to peer " + peerInfo.peerID);
             try{
-                clientSocket = new Socket(peerInfo.hostName, Integer.parseInt(peerInfo.port));
+                socket = new Socket(peerInfo.hostName, Integer.parseInt(peerInfo.port));
+                out = new DataOutputStream(socket.getOutputStream());
+                out.flush();
+                in = new DataInputStream(socket.getInputStream());
+                synchronized(clientSockets){
+                    clientSockets.add(new ClientSocket(peerInfo.peerID, socket, in, out));
+                }
                 System.out.println("Connected to peer " + peerInfo.peerID);
+                System.out.println("Sending handShake to " + peerInfo.peerID);
+                handShake(new HandshakeMessage(id), out);
+                System.out.println("handShake sent");
             } catch(IOException e){
                 e.printStackTrace();
             }
+        }
+
+    }
+
+    // 
+    public void handShake(HandshakeMessage handShake, DataOutputStream out) throws IOException{
+        out.writeUTF(handShake.getString());
+    }
+
+    // Response handshake verifies whether the handshake is from 
+    // an authorized peer and sends a response handshake.
+    public void reshandShake(String peerId){
+        String eachPeerLine;
+        String address = null;
+        String serverPort = null;
+        DataOutputStream out = null;
+        DataInputStream in = null;
+        Socket socket;
+        try{
+            BufferedReader buffer = new BufferedReader(new FileReader("p2p/PeerInfo.cfg"));
+            while ((eachPeerLine = buffer.readLine()) != null) {
+                String[] tokens = eachPeerLine.split("\\s+");
+                if(tokens[0].equals(peerId)){
+                    address = tokens[1];
+                    serverPort = tokens[2];
+                    attacker = false;
+                    System.out.print("Verified the peer. ");
+                    break;
+                }
+            }
+            if(!attacker){
+                System.out.println("Sending response handshake.");
+                // System.out.println("In response handshake. Trying to connect to peer " + peerId);
+                socket = new Socket(address, Integer.parseInt(serverPort));
+                out = new DataOutputStream(socket.getOutputStream());
+                out.flush();
+                in = new DataInputStream(socket.getInputStream());
+                synchronized(clientSockets){
+                    clientSockets.add(new ClientSocket(peerId, socket, in, out));
+                }
+                // System.out.println("In response handshake. Connected to peer " + peerId);
+                handShake(new HandshakeMessage(id), out);
+                System.out.println("Response handshake sent.");
+            }
+        } catch(IOException e){
+            e.printStackTrace();
         }
     }
 }
