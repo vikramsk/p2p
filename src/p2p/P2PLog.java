@@ -1,45 +1,40 @@
 package p2p;
 
 import java.io.File;
+import java.util.Date;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
-import java.util.logging.LogManager;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-import java.util.Calendar;
-import java.text.SimpleDateFormat;
+
 
 public class P2PLog{
-       Logger logger;
-	String peerId;
-       String timeStamp;
 
-	LogManager logManager = LogManager.getLogManager();
-	String path = System.getProperty("user.dir") + File.separator;
-	FileHandler fileHandler;
-	public P2PLog(String peerId){
+	static Logger logger;
+	
+	public static Logger GetLogger(String peerID){
 		try {
-			this.peerId = peerId;
-			fileHandler = new FileHandler(path + "log_peer_" + peerId + ".log");
-			logger = Logger.getLogger("Log for peer " + peerId);
-                     logManager.addLogger(logger);
-                     logger.setLevel(Level.INFO);
-                     fileHandler.setFormatter(new SimpleFormatter());
-                     logger.addHandler(fileHandler);
+			String logName = "log_peer_" + peerID;
+			String path = System.getProperty("user.dir") + File.separator;
+			FileHandler fileHandler = new FileHandler(path + logName + ".log");
+			fileHandler.setFormatter(new SimpleFormatter() {
+				private static final String format = "[%1$tF %1$tT] [%2$-7s] %3$s %n";
+
+				@Override
+				public synchronized String format(LogRecord lr) {
+					return String.format(format, new Date(lr.getMillis()), lr.getLevel().getLocalizedName(),
+							lr.getMessage());
+				}
+			});
+			
+			logger = Logger.getLogger(logName);
+			logger.setLevel(Level.INFO);
+			logger.addHandler(fileHandler);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
+		return logger;
 	}
-
-       public void log(String string){
-              logger.log(Level.INFO, string);
-       }
-
-       // public String getTime(){
-       //        this.timeStamp = new SimpleDateFormat(" MM/dd/yyyy  H:m:s ").format(Calendar.getInstance().getTime());
-       //        return timeStamp;
-       // }
-
 }
