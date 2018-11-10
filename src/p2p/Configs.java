@@ -8,7 +8,7 @@ import java.util.List;
 // Configs loads the configuration from the 
 // files when the process is launched.
 public final class Configs {
-	
+
 	static class Constants {
 		static final String CommonConfigPath = "p2p/Common.cfg";
 		static final String PeerInfoConfigPath = "p2p/PeerInfo.cfg";
