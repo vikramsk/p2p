@@ -3,14 +3,20 @@ package p2p;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.List;
 
 // Configs loads the configuration from the 
 // files when the process is launched.
 public final class Configs {
 	
+	static class Constants {
+		static final String CommonConfigPath = "p2p/Common.cfg";
+		static final String PeerInfoConfigPath = "p2p/PeerInfo.cfg";
+	}
+
 	// Common defines the Common config object.
 	public final static class Common {
-		
+
 		// Constants consists of the supported configuration strings
 		// for the Common configurations.
 		static class Constants {
@@ -21,14 +27,14 @@ public final class Configs {
 			static final String FileSize = "FileSize";
 			static final String PieceSize = "PieceSize";
 		}
-		
+
 		static int NumberOfPreferredNeighbors;
 		static int UnchokingInterval;
 		static int OptimisticUnchokingInterval;
 		static String FileName;
 		static int FileSize;
 		static int PieceSize;
-		
+
 		Common(String fileName) {
 			FileReader fr;
 			BufferedReader br;
@@ -68,4 +74,32 @@ public final class Configs {
 			}
 		}
 	}
+
+	public static PeerInfo parsePeerInfos(List<PeerInfo> peerInfos, String fileName, String targetPeer) {
+		FileReader fr;
+		BufferedReader br;
+		PeerInfo peer = null;
+		try {
+			fr = new FileReader(fileName);
+			br = new BufferedReader(fr);
+			String line = br.readLine();
+			while (line != null) {
+				String[] tokens = line.split("\\s+");
+				PeerInfo parsedPeer =  new PeerInfo(tokens[0], tokens[1], Integer.parseInt(tokens[2]));
+				if(tokens[0].equals(targetPeer)){
+					peer = parsedPeer;
+					break;
+				}
+				peerInfos.add(parsedPeer);
+				line = br.readLine();
+			}
+			br.close();
+			fr.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return peer;
+	}
 }
+
