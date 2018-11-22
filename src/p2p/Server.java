@@ -46,7 +46,7 @@ public class Server extends Thread {
 			DataOutputStream outStream = new DataOutputStream(sock.getOutputStream());
 			String message = (String) inStream.readUTF();
 			String neighborPeerID = message.substring(28, 32); 
-			PeerInfo neighbor = new PeerInfo(neighborPeerID, sock.getInetAddress().getHostAddress(), sock.getPort());
+			PeerInfo neighbor = new PeerInfo(neighborPeerID, sock.getInetAddress().getHostAddress(), sock.getPort(), false);
 			Client client = new Client(localPeer, neighbor, logger, sock, inStream, outStream);
 			Thread clientThread = new Thread(client);
 			clientThread.start();

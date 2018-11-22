@@ -10,7 +10,8 @@ enum MessageType {
 	REQUEST,
 	PIECE;
 
-	public static MessageType getType(byte typeIndex) {
+	// getType does a reverse lookup on the MessageType.
+	public static MessageType getType(int typeIndex) {
 		return MessageType.values()[typeIndex];
 	}
 }
