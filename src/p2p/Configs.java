@@ -85,7 +85,8 @@ public final class Configs {
 			String line = br.readLine();
 			while (line != null) {
 				String[] tokens = line.split("\\s+");
-				PeerInfo parsedPeer =  new PeerInfo(tokens[0], tokens[1], Integer.parseInt(tokens[2]));
+				boolean hasFile = Integer.parseInt(tokens[3]) == 1 ? true : false;
+				PeerInfo parsedPeer =  new PeerInfo(tokens[0], tokens[1], Integer.parseInt(tokens[2]), hasFile);
 				if(tokens[0].equals(targetPeer)){
 					peer = parsedPeer;
 					break;
