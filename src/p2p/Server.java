@@ -48,6 +48,7 @@ public class Server extends Thread {
 			String neighborPeerID = message.substring(28, 32); 
 			PeerInfo neighbor = new PeerInfo(neighborPeerID, sock.getInetAddress().getHostAddress(), sock.getPort(), false);
 			Client client = new Client(localPeer, neighbor, logger, sock, inStream, outStream);
+			localPeer.addClient(client);
 			Thread clientThread = new Thread(client);
 			clientThread.start();
 		} catch (IOException e) {
