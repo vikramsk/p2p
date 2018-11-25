@@ -3,7 +3,11 @@ package p2p;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -15,39 +19,62 @@ import java.io.DataInputStream;
 class Client implements Runnable,ClientInterface {
 
 	// localPeer defines the peer on which the client is running.
-	Peer localPeer;
+	private Peer localPeer;
 
 	// neighbor defines the peer info for the neighbor.
-	PeerInfo neighbor;
+	private PeerInfo neighbor;
 
 	// handshakeReceived is set once the handshake is received
 	// by the peer.
-	boolean handshakeReceived;
+	private boolean handshakeReceived;
+
+	// downloadedPiecesSinceUnchoked represents the number of 
+	// pieces that have been downloaded by the peer since it
+	// was last choked by the neighbor.
+	private int downloadedPiecesSinceUnchoked;
+
+	// lastUnchokedByNeighborAt represents the time at which
+	// the peer was last unchoked by the neighbor.
+	private Instant lastUnchokedByNeighborAt;
+	
+	// lastDownloadRateLock protects the lastDownloadRate.
+	private final ReadWriteLock lastDownloadRateLock = new ReentrantReadWriteLock();
+	
+	// lastDownloadRate represents the download rate for the
+	// peer in the last unchoke interval with the neighbor.
+	// The download rate is defined in pieces/sec.
+	private float lastDownloadRate;
 
 	// isChoked is set if the neighbor has been choked
 	// by the peer.
-	boolean isChoked;
+	private boolean isChoked;
+
+	// shutdown is set to true when the connection needs to be cloesd.
+	private boolean shutdown;
 
 	// socket defines the socket used to connect to the neighbor.
-	Socket socket;
+	private Socket socket;
 
 	// outStream defines the output stream for the socket.
-	DataOutputStream outStream;
+	private DataOutputStream outStream;
 
-	LinkedBlockingQueue<Message> writeMessageQueue;
+	private LinkedBlockingQueue<Message> writeMessageQueue;
 
 	// inStream defines the input stream for the socket.
-	DataInputStream inStream;
+	private DataInputStream inStream;
 
 	// Logger defines the client logger.
-	Logger logger;
+	private Logger logger;
 
 	public Client(Peer peer, PeerInfo neighborPeerInfo, Logger p2pLogger){
 		localPeer = peer;
 		neighbor = neighborPeerInfo;
 		logger = p2pLogger;
+		downloadedPiecesSinceUnchoked = 0;
+		lastDownloadRate = 0;
 		handshakeReceived = false;
-		isChoked = false;
+		isChoked = true;
+		shutdown = false;
 		writeMessageQueue = new LinkedBlockingQueue<Message>();
 		try {
 			socket = new Socket(neighborPeerInfo.hostName, neighborPeerInfo.port);
@@ -67,11 +94,18 @@ class Client implements Runnable,ClientInterface {
 		neighbor = neighborPeerInfo;
 		logger = p2pLogger;
 		socket = sock;
+		downloadedPiecesSinceUnchoked = 0;
+		lastDownloadRate = 0;
+		shutdown = false;
 		writeMessageQueue = new LinkedBlockingQueue<Message>();
 		handshakeReceived = true;
-		isChoked = false;
+		isChoked = true;
 		inStream = in;
 		outStream = out;
+	}
+	
+	public String getID() {
+		return neighbor.peerID;
 	}
 
 	@Override
@@ -87,8 +121,8 @@ class Client implements Runnable,ClientInterface {
 					writeMessages();
 				}
 			}).start();
-			
-			while(true) {
+
+			while(true && !shutdown) {
 				handleActualMessage();
 			}
 
@@ -97,7 +131,7 @@ class Client implements Runnable,ClientInterface {
 			System.out.println("Terminating connection with Peer " + neighbor.peerID);
 			return;
 		} catch (IOException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 
@@ -110,7 +144,7 @@ class Client implements Runnable,ClientInterface {
 				Message msg = writeMessageQueue.take();
 				if (msg.type == null)
 					return;
-				
+
 				sendActualMessage(msg);
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
@@ -150,7 +184,7 @@ class Client implements Runnable,ClientInterface {
 		MessageType mType = MessageType.getType(Byte.toUnsignedInt(inStream.readByte()));
 		switch (mType) {
 		case CHOKE:
-			// Do nothing
+			handleChoke();
 			break;
 		case UNCHOKE:
 			handleUnchoke();
@@ -175,9 +209,23 @@ class Client implements Runnable,ClientInterface {
 			break;
 		}
 	}
+	// handleChoke acts on the CHOKE message.
+	private void handleChoke() throws IOException {
+		logger.info("Peer " + localPeer.getID() + " is unchoked by Peer " + neighbor.peerID);
+
+		// calculate the download rate for the last unchoked interval.
+		// reset the downloaded pieces counter.
+		lastDownloadRateLock.writeLock().lock();
+		lastDownloadRate = (float) downloadedPiecesSinceUnchoked / Duration.between(Instant.now(), lastUnchokedByNeighborAt).getSeconds();
+		downloadedPiecesSinceUnchoked = 0;
+		lastDownloadRateLock.writeLock().unlock();
+	}
 
 	// handleUnchoke acts on the UNCHOKE message.
 	private void handleUnchoke() throws IOException {
+		logger.info("Peer " + localPeer.getID() + " is choked by Peer " + neighbor.peerID);
+		
+		lastUnchokedByNeighborAt = Instant.now();
 		requestPiece();
 	}
 
@@ -238,6 +286,7 @@ class Client implements Runnable,ClientInterface {
 		inStream.readFully(data);
 		System.out.println("Received Piece with piece index: " + pieceIndex);
 		localPeer.addPiece(pieceIndex, data);
+		downloadedPiecesSinceUnchoked++;
 		logger.info("Peer " + localPeer.getID() + " has downloaded the piece " + pieceIndex +" from Peer " + neighbor.peerID);
 		requestPiece();
 	}
@@ -246,10 +295,10 @@ class Client implements Runnable,ClientInterface {
 	// that it's missing and the neighbor has.
 	private void requestPiece() throws IOException {
 		int pieceIndex = localPeer.getPieceRequestIndex(neighbor.peerID);
-		System.out.println("Sending Request for Piece Index: " + pieceIndex);
 		if (pieceIndex == -1) {
 			return;
 		}
+		System.out.println("Sending Request for Piece Index: " + pieceIndex);
 		ByteBuffer bb = ByteBuffer.allocate(4); 
 		bb.putInt(pieceIndex);
 		writeMessageQueue.add(new Message(MessageType.REQUEST, bb.array()));
@@ -259,7 +308,7 @@ class Client implements Runnable,ClientInterface {
 	// neighbor.
 	public void performHandshake() {
 		sendHandshake();
-		
+
 		if (!handshakeReceived) {
 			receiveHandshake();
 		}	
@@ -273,6 +322,18 @@ class Client implements Runnable,ClientInterface {
 		} catch (IOException e) {
 			logger.info(e.toString());
 		}
+	}
+	
+	// chokeNeighbor chokes the neighbor and notifies it.
+	public void chokeNeighbor() {
+		isChoked = true;
+		writeMessageQueue.add(new Message(MessageType.CHOKE, null));
+	}
+	
+	// unchokeNeighbor unchokes the neighbor and notifies it.
+	public void unchokeNeighbor() {
+		isChoked = false;
+		writeMessageQueue.add(new Message(MessageType.UNCHOKE, null));
 	}
 
 	// receiveHandshake receives and handles the handshake
@@ -302,6 +363,27 @@ class Client implements Runnable,ClientInterface {
 	public void sendBitField() throws IOException {
 		if (localPeer.hasFile()) {
 			sendActualMessage(new Message(MessageType.BITFIELD, localPeer.getBitField()));
+		}
+	}
+
+	// getDownloadRate returns the download rate for the peer from
+	// the neighbor during the last unchoked interval.
+	public float getDownloadRate() {
+		lastDownloadRateLock.readLock().lock();
+		try {
+			return lastDownloadRate;
+		} finally {
+			lastDownloadRateLock.readLock().unlock();
+		}
+	}
+	
+	public void shutdown() {
+		try {
+			shutdown = true;
+			Thread.sleep(5);
+			socket.close();
+		} catch (IOException | InterruptedException e) {
+			// Do nothing
 		}
 	}
 }
