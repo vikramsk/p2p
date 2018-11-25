@@ -51,7 +51,8 @@ class FileHandler {
 		fileLock.readLock().lock();
 		try {
 			file.seek(pieceIndex*pieceSize);
-			file.readFully(data);
+			file.read(data);
+			System.out.println("returned data for piece " + pieceIndex );
 		} finally {
 			fileLock.readLock().unlock();
 		}
