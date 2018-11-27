@@ -52,7 +52,6 @@ class FileHandler {
 		try {
 			file.seek(pieceIndex*pieceSize);
 			file.read(data);
-			System.out.println("returned data for piece " + pieceIndex );
 		} finally {
 			fileLock.readLock().unlock();
 		}
@@ -74,5 +73,17 @@ class FileHandler {
 			fileLock.writeLock().unlock();
 		}
 		return status;
+	}
+	
+	public void close() {
+		fileLock.writeLock().lock();
+		try {
+			file.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			fileLock.writeLock().unlock();
+		}
 	}
 }
