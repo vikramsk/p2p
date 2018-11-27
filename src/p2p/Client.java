@@ -211,7 +211,7 @@ class Client implements Runnable,ClientInterface {
 	}
 	// handleChoke acts on the CHOKE message.
 	private void handleChoke() throws IOException {
-		logger.info("Peer " + localPeer.getID() + " is unchoked by Peer " + neighbor.peerID);
+		logger.info("Peer " + localPeer.getID() + " is choked by Peer " + neighbor.peerID);
 
 		// calculate the download rate for the last unchoked interval.
 		// reset the downloaded pieces counter.
@@ -223,7 +223,7 @@ class Client implements Runnable,ClientInterface {
 
 	// handleUnchoke acts on the UNCHOKE message.
 	private void handleUnchoke() throws IOException {
-		logger.info("Peer " + localPeer.getID() + " is choked by Peer " + neighbor.peerID);
+		logger.info("Peer " + localPeer.getID() + " is unchoked by Peer " + neighbor.peerID);
 		
 		lastUnchokedByNeighborAt = Instant.now();
 		requestPiece();
@@ -257,7 +257,7 @@ class Client implements Runnable,ClientInterface {
 		localPeer.setNeighborBitField(neighbor.peerID, mBitField);
 		if (localPeer.getPieceRequestIndex(neighbor.peerID) != -1) {
 			writeMessageQueue.add(new Message(MessageType.INTERESTED, null));
-			requestPiece();
+			//requestPiece();
 		}
 	}
 
@@ -269,7 +269,7 @@ class Client implements Runnable,ClientInterface {
 		if (isChoked) {
 			return;
 		}
-		System.out.println("Received Request for Piece Index: " + pieceIndex);
+		//System.out.println("Received Request for Piece Index: " + pieceIndex);
 		byte[] piece = localPeer.getPiece(pieceIndex);
 		if (piece != null) {
 			ByteBuffer bb = ByteBuffer.allocate(4 + piece.length); 
@@ -284,7 +284,7 @@ class Client implements Runnable,ClientInterface {
 		Integer pieceIndex = inStream.readInt();
 		byte[] data = new byte[mLength-4];
 		inStream.readFully(data);
-		System.out.println("Received Piece with piece index: " + pieceIndex);
+		//System.out.println("Received Piece with piece index: " + pieceIndex);
 		localPeer.addPiece(pieceIndex, data);
 		downloadedPiecesSinceUnchoked++;
 		logger.info("Peer " + localPeer.getID() + " has downloaded the piece " + pieceIndex +" from Peer " + neighbor.peerID);
@@ -298,7 +298,7 @@ class Client implements Runnable,ClientInterface {
 		if (pieceIndex == -1) {
 			return;
 		}
-		System.out.println("Sending Request for Piece Index: " + pieceIndex);
+		//System.out.println("Sending Request for Piece Index: " + pieceIndex);
 		ByteBuffer bb = ByteBuffer.allocate(4); 
 		bb.putInt(pieceIndex);
 		writeMessageQueue.add(new Message(MessageType.REQUEST, bb.array()));
@@ -361,7 +361,7 @@ class Client implements Runnable,ClientInterface {
 	// sendBitField sends the bitfield of the local peer
 	// to the neighbor.
 	public void sendBitField() throws IOException {
-		if (localPeer.hasFile()) {
+		if (localPeer.hasOnePiece()) {
 			sendActualMessage(new Message(MessageType.BITFIELD, localPeer.getBitField()));
 		}
 	}
@@ -380,9 +380,12 @@ class Client implements Runnable,ClientInterface {
 	public void shutdown() {
 		try {
 			shutdown = true;
-			Thread.sleep(5);
+			while(!writeMessageQueue.isEmpty()) {
+				// Do nothing.
+			}
+			outStream.flush();
 			socket.close();
-		} catch (IOException | InterruptedException e) {
+		} catch (IOException e) {
 			// Do nothing
 		}
 	}
