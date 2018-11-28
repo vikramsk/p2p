@@ -232,12 +232,13 @@ class Client implements Runnable,ClientInterface {
 	// handleInterested acts on the INTERESTED message.
 	private void handleInterested() {
 		logger.info("Peer " + localPeer.getID() + " received the `INTERESTED` message from Peer " + neighbor.peerID);
-		localPeer.addInterestedPeer(neighbor.peerID);
+		localPeer.addPeerInterest(neighbor.peerID, true);
 	}
 
 	// handleNotInterested acts on the NOT INTERESTED message.
 	private void handleNotInterested() {
 		logger.info("Peer " + localPeer.getID() + " received the `NOT INTERESTED` message from Peer " + neighbor.peerID);
+		localPeer.addPeerInterest(neighbor.peerID, false);
 	}
 
 	// handleHave acts on the HAVE message.
@@ -257,7 +258,6 @@ class Client implements Runnable,ClientInterface {
 		localPeer.setNeighborBitField(neighbor.peerID, mBitField);
 		if (localPeer.getPieceRequestIndex(neighbor.peerID) != -1) {
 			writeMessageQueue.add(new Message(MessageType.INTERESTED, null));
-			//requestPiece();
 		}
 	}
 
@@ -285,9 +285,11 @@ class Client implements Runnable,ClientInterface {
 		byte[] data = new byte[mLength-4];
 		inStream.readFully(data);
 		//System.out.println("Received Piece with piece index: " + pieceIndex);
-		localPeer.addPiece(pieceIndex, data);
+		boolean pieceAdded = localPeer.addPiece(pieceIndex, data);
 		downloadedPiecesSinceUnchoked++;
-		logger.info("Peer " + localPeer.getID() + " has downloaded the piece " + pieceIndex +" from Peer " + neighbor.peerID);
+		if (pieceAdded) {
+			logger.info("Peer " + localPeer.getID() + " has downloaded the piece " + pieceIndex +" from Peer " + neighbor.peerID);
+		}
 		requestPiece();
 	}
 

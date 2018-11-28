@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
@@ -47,6 +48,9 @@ public class Peer {
 	// preferredNeighbors stores the list of preferred
 	// neighbors for a given peer at a given point in time.
 	ArrayList<Client> preferredNeighbors;
+	
+	// interestedPeers keeps track of the interested peers.
+	List<String> interestedPeers;
 
 	// optimisticallyUnchokedNeighbor defines the peer
 	// that is optimistically unchoked at a given point in time.
@@ -87,6 +91,7 @@ public class Peer {
 		neighbors = new ConcurrentHashMap<String, Client>();
 		neighborBitFields = new ConcurrentHashMap<String, BitSet>();
 		preferredNeighbors = new ArrayList<Client>();
+		interestedPeers = Collections.synchronizedList(new ArrayList<String>());
 		pieceTracker = new ConcurrentHashMap<String, HashSet<Integer>>();
 		pieceTracker.put(peerInfo.peerID, new HashSet<Integer>());
 
@@ -268,6 +273,7 @@ public class Peer {
 	// getCompletedPeers returns list of peers that have
 	// completed the file download in the p2p network.
 	private ArrayList<Client> getCompletedPeers() {
+		bitFieldLock.readLock().lock();
 		ArrayList<Client> completedPeers = new ArrayList<Client>();
 		Iterator<Entry<String, HashSet<Integer>>> pieceIterator = pieceTracker.entrySet().iterator();
 		while (pieceIterator.hasNext()) {
@@ -278,33 +284,49 @@ public class Peer {
 			if (peer.getValue().size() == totalPieces)
 				completedPeers.add(neighbors.get(peer.getKey()));
 		}
+		bitFieldLock.readLock().unlock();
 		return completedPeers;
 	}
 
 	// updateNeighborBitField updates the bitfield info for a neighboring peer.
 	// This operation is thread safe.
 	public void updateNeighborPieceIndex(String peerID, Integer pieceIndex) {
-		BitSet nBitSet = neighborBitFields.get(peerID);
-		nBitSet.set(pieceIndex);
-		neighborBitFields.put(peerID, nBitSet);
-		pieceTracker.get(peerID).add(pieceIndex);
+		try {
+			bitFieldLock.writeLock().lock();
+			BitSet nBitSet = neighborBitFields.get(peerID);
+			nBitSet.set(pieceIndex);
+			neighborBitFields.put(peerID, nBitSet);
+			pieceTracker.get(peerID).add(pieceIndex);
+		} finally {
+			bitFieldLock.writeLock().unlock();
+		}
 	}
 
 	// setNeighborBitField sets the bitField for the given peer id in
 	// the neighbor bit field map.
 	public void setNeighborBitField(String peerID, byte[] bitField) {
-		BitSet bitSet = getBitSet(bitField);
-		neighborBitFields.put(peerID, bitSet);
-		for (int i = 0; i < totalPieces; i++) {
-			if (bitSet.get(i)) {
-				pieceTracker.get(peerID).add(i);
+		try {
+			bitFieldLock.writeLock().lock();
+			BitSet bitSet = getBitSet(bitField);
+			neighborBitFields.put(peerID, bitSet);
+			for (int i = 0; i < totalPieces; i++) {
+				if (bitSet.get(i)) {
+					pieceTracker.get(peerID).add(i);
+				}
 			}
+		} finally {
+			bitFieldLock.writeLock().unlock();
 		}
 	}
 
 	// hasPiece returns true if the peer has a given piece.
 	public boolean hasPiece(Integer pieceIndex) {
-		return pieceTracker.get(getID()).contains(pieceIndex);
+		try {
+			bitFieldLock.readLock().lock();
+			return pieceTracker.get(getID()).contains(pieceIndex);
+		} finally {
+			bitFieldLock.readLock().unlock();
+		}
 	}
 
 	// getBitField returns the bit field for the peer.
@@ -337,18 +359,26 @@ public class Peer {
 	// getPieceRequestIndex returns the ID of the piece that
 	// needs to be requested from a given peer.
 	public int getPieceRequestIndex(String peerID) {
-		ArrayList<Integer> candidatePieces = new ArrayList<Integer>(pieceTracker.get(peerID));
-		candidatePieces.removeAll(pieceTracker.get(getID()));
-		if (!candidatePieces.isEmpty()) {
-			return candidatePieces.get(new Random().nextInt(candidatePieces.size()));
+		try {
+			bitFieldLock.readLock().lock();
+			ArrayList<Integer> candidatePieces = new ArrayList<Integer>(pieceTracker.get(peerID));
+			candidatePieces.removeAll(new ArrayList<Integer>(pieceTracker.get(getID())));
+			if (!candidatePieces.isEmpty()) {
+				return candidatePieces.get(new Random().nextInt(candidatePieces.size()));
+			}
+		} finally {
+			bitFieldLock.readLock().unlock();
 		}
 		return -1;
 	}
 
 	// addPiece saves a given piece for the local peer.
-	public void addPiece(Integer pieceIndex, byte[] data) throws IOException {
+	public boolean addPiece(Integer pieceIndex, byte[] data) throws IOException {
 		bitFieldLock.writeLock().lock();
 		try {
+			if (pieceTracker.get(getID()).contains(pieceIndex))
+				return false;
+			
 			if (!bitFieldSet.get(pieceIndex)) {
 				fileHandler.addPiece(pieceIndex, data);
 				bitFieldSet.set(pieceIndex);
@@ -366,6 +396,7 @@ public class Peer {
 			Map.Entry<String, Client> pair = (Map.Entry<String, Client>)neighborIterator.next();
 			pair.getValue().sendHave(pieceIndex);
 		}
+		return true;
 	}
 
 	// getPiece returns the requested piece from the local peer.
@@ -399,7 +430,14 @@ public class Peer {
 		System.exit(0);
 	}
 
-	public void addInterestedPeer(String peerID) {
+	// addPeerInterest keeps track of the interest from peers.
+	public void addPeerInterest(String peerID, boolean interested) {
+		synchronized (interestedPeers) {
+			if (interested)
+				interestedPeers.add(peerID);
+			else
+				interestedPeers.remove(peerID);
+		}
 	}
 }
 
