@@ -16,6 +16,8 @@ public class PeerProcess {
 		// option to override the default filename.
 		if (args.length == 2) {
 			Configs.Common.FileName = args[1];
+		} else {
+			Configs.Common.FileName = "peer_" + args[0] + "/" + Configs.Common.FileName;
 		}
 		
 		System.out.println("Launching Peer " + args[0]);
