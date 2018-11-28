@@ -1,6 +1,5 @@
 package p2p;
 
-import java.io.File;
 import java.util.Date;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
@@ -15,9 +14,8 @@ public class P2PLog{
 	
 	public static Logger GetLogger(String peerID){
 		try {
-			String logName = "log_peer_" + peerID;
-			String path = System.getProperty("user.dir") + File.separator;
-			FileHandler fileHandler = new FileHandler(path + logName + ".log");
+			String logFile = "peer_" + peerID + "/log_peer_" + peerID + ".log";
+			FileHandler fileHandler = new FileHandler(logFile);
 			fileHandler.setFormatter(new SimpleFormatter() {
 				private static final String format = "[%1$tF %1$tT] [%2$-7s] %3$s %n";
 
@@ -28,7 +26,7 @@ public class P2PLog{
 				}
 			});
 			
-			logger = Logger.getLogger(logName);
+			logger = Logger.getLogger(logFile);
 			logger.setLevel(Level.INFO);
 			logger.addHandler(fileHandler);
 		} catch (Exception e) {
